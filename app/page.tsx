@@ -38,16 +38,12 @@ type StorageData = {
   durations: Record<string, number>;
 };
 
-// ─── STARTER PROMPTS ──────────────────────────────────────────────────────────
-// These are the clickable example questions shown before the user starts chatting.
-// Edit these to match the kinds of questions TrendScout does best.
 const STARTER_PROMPTS = [
   "What's driving the wellness trend among Gen Z consumers?",
   "Analyze the premiumization trend in the coffee industry",
   "What does 'quiet luxury' mean for brand strategy?",
   "Which consumer behaviors emerged post-pandemic that are here to stay?",
 ];
-// ──────────────────────────────────────────────────────────────────────────────
 
 const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
   if (typeof window === 'undefined') return { messages: [], durations: {} };
@@ -128,4 +124,159 @@ export default function Chat() {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    de
+    defaultValues: {
+      message: "",
+    },
+  });
+
+  function onSubmit(data: z.infer<typeof formSchema>) {
+    sendMessage({ text: data.message });
+    form.reset();
+  }
+
+  function handleStarterPrompt(prompt: string) {
+    sendMessage({ text: prompt });
+  }
+
+  function clearChat() {
+    const newMessages: UIMessage[] = [];
+    const newDurations = {};
+    setMessages(newMessages);
+    setDurations(newDurations);
+    saveMessagesToStorage(newMessages, newDurations);
+    toast.success("Chat cleared");
+  }
+
+  const showStarterPrompts = isClient && messages.length <= 1;
+
+  return (
+    <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
+      <main className="w-full dark:bg-black h-screen relative">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-16">
+          <div className="relative overflow-visible">
+            <ChatHeader>
+              <ChatHeaderBlock />
+              <ChatHeaderBlock className="justify-center items-center">
+                <Avatar className="size-8 ring-1 ring-primary">
+                  <AvatarImage src="/logo.png" />
+                  <AvatarFallback>
+                    <Image src="/logo.png" alt="Logo" width={36} height={36} />
+                  </AvatarFallback>
+                </Avatar>
+                <p className="tracking-tight">Chat with {AI_NAME}</p>
+              </ChatHeaderBlock>
+              <ChatHeaderBlock className="justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={clearChat}
+                >
+                  <Plus className="size-4" />
+                  {CLEAR_CHAT_TEXT}
+                </Button>
+              </ChatHeaderBlock>
+            </ChatHeader>
+          </div>
+        </div>
+
+        <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-[150px]">
+          <div className="flex flex-col items-center justify-end min-h-full">
+            {isClient ? (
+              <>
+                <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
+
+                {showStarterPrompts && (
+                  <div className="flex flex-wrap gap-2 justify-center max-w-3xl w-full mt-4 mb-2">
+                    {STARTER_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        onClick={() => handleStarterPrompt(prompt)}
+                        disabled={status === "streaming" || status === "submitted"}
+                        className="text-sm px-4 py-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 hover:border-gray-400 text-gray-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {status === "submitted" && (
+                  <div className="flex justify-start max-w-3xl w-full">
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex justify-center max-w-2xl w-full">
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-13">
+          <div className="w-full px-5 pt-5 pb-1 items-center flex justify-center relative overflow-visible">
+            <div className="message-fade-overlay" />
+            <div className="max-w-3xl w-full">
+              <form id="chat-form" onSubmit={form.handleSubmit(onSubmit)}>
+                <FieldGroup>
+                  <Controller
+                    name="message"
+                    control={form.control}
+                    render={({ field, fieldState }) => (
+                      <Field data-invalid={fieldState.invalid}>
+                        <FieldLabel htmlFor="chat-form-message" className="sr-only">
+                          Message
+                        </FieldLabel>
+                        <div className="relative h-13">
+                          <Input
+                            {...field}
+                            id="chat-form-message"
+                            className="h-15 pr-15 pl-5 bg-card rounded-[20px]"
+                            placeholder="Type your message here..."
+                            disabled={status === "streaming"}
+                            aria-invalid={fieldState.invalid}
+                            autoComplete="off"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                form.handleSubmit(onSubmit)();
+                              }
+                            }}
+                          />
+                          {(status == "ready" || status == "error") && (
+                            <Button
+                              className="absolute right-3 top-3 rounded-full"
+                              type="submit"
+                              disabled={!field.value.trim()}
+                              size="icon"
+                            >
+                              <ArrowUp className="size-4" />
+                            </Button>
+                          )}
+                          {(status == "streaming" || status == "submitted") && (
+                            <Button
+                              className="absolute right-2 top-2 rounded-full"
+                              size="icon"
+                              onClick={() => { stop(); }}
+                            >
+                              <Square className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </Field>
+                    )}
+                  />
+                </FieldGroup>
+              </form>
+            </div>
+          </div>
+          <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground">
+            © {new Date().getFullYear()} {OWNER_NAME}&nbsp;<Link href="/terms" className="underline">Terms of Use</Link>&nbsp;Powered by&nbsp;<Link href="https://ringel.ai/" className="underline">Ringel.AI</Link>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
