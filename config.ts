@@ -2,7 +2,7 @@ import { openai } from "@ai-sdk/openai";
 import { fireworks } from "@ai-sdk/fireworks";
 import { wrapLanguageModel, extractReasoningMiddleware } from "ai";
 
-export const MODEL = openai('gpt-4.1');
+export const MODEL = openai('gpt-4o');
 
 // If you want to use a Fireworks model, uncomment the following code and set the FIREWORKS_API_KEY in Vercel
 // NOTE: Use middleware when the reasoning tag is different than think. (Use ChatGPT to help you understand the middleware)
@@ -33,7 +33,9 @@ export const DATE_AND_TIME = getDateAndTime();
 export const AI_NAME = "TrendScout AI";
 export const OWNER_NAME = "Sarah Kearney";
 
-export const WELCOME_MESSAGE = `Hello! I'm ${AI_NAME}, an AI assistant created by ${OWNER_NAME}.`;
+export const WELCOME_MESSAGE = `Hello! I'm TrendScout AI — your consumer trend analyst. 
+Ask me about emerging Gen Z behaviors, beauty & wellness shifts, brand positioning, 
+or what's driving spending in any category. I'll give you structured insights, not just summaries.`;
 
 export const CLEAR_CHAT_TEXT = "New";
 
