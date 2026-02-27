@@ -1,255 +1,197 @@
-"use client";
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
-import * as z from "zod";
-
-import { Button } from "@/components/ui/button";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import { useChat } from "@ai-sdk/react";
-import { ArrowUp, Eraser, Loader2, Plus, PlusIcon, Square } from "lucide-react";
-import { MessageWall } from "@/components/messages/message-wall";
-import { ChatHeader } from "@/app/parts/chat-header";
-import { ChatHeaderBlock } from "@/app/parts/chat-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { UIMessage } from "ai";
-import { useEffect, useState, useRef } from "react";
-import { AI_NAME, CLEAR_CHAT_TEXT, OWNER_NAME, WELCOME_MESSAGE } from "@/config";
-import Image from "next/image";
+import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
+import { OWNER_NAME } from "@/config";
 
-const formSchema = z.object({
-  message: z
-    .string()
-    .min(1, "Message cannot be empty.")
-    .max(2000, "Message must be at most 2000 characters."),
-});
-
-const STORAGE_KEY = 'chat-messages';
-
-type StorageData = {
-  messages: UIMessage[];
-  durations: Record<string, number>;
-};
-
-const loadMessagesFromStorage = (): { messages: UIMessage[]; durations: Record<string, number> } => {
-  if (typeof window === 'undefined') return { messages: [], durations: {} };
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return { messages: [], durations: {} };
-
-    const parsed = JSON.parse(stored);
-    return {
-      messages: parsed.messages || [],
-      durations: parsed.durations || {},
-    };
-  } catch (error) {
-    console.error('Failed to load messages from localStorage:', error);
-    return { messages: [], durations: {} };
-  }
-};
-
-const saveMessagesToStorage = (messages: UIMessage[], durations: Record<string, number>) => {
-  if (typeof window === 'undefined') return;
-  try {
-    const data: StorageData = { messages, durations };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (error) {
-    console.error('Failed to save messages to localStorage:', error);
-  }
-};
-
-export default function Chat() {
-  const [isClient, setIsClient] = useState(false);
-  const [durations, setDurations] = useState<Record<string, number>>({});
-  const welcomeMessageShownRef = useRef<boolean>(false);
-
-  const stored = typeof window !== 'undefined' ? loadMessagesFromStorage() : { messages: [], durations: {} };
-  const [initialMessages] = useState<UIMessage[]>(stored.messages);
-
-  const { messages, sendMessage, status, stop, setMessages } = useChat({
-    messages: initialMessages,
-  });
-
-  useEffect(() => {
-    setIsClient(true);
-    setDurations(stored.durations);
-    setMessages(stored.messages);
-  }, []);
-
-  useEffect(() => {
-    if (isClient) {
-      saveMessagesToStorage(messages, durations);
-    }
-  }, [durations, messages, isClient]);
-
-  const handleDurationChange = (key: string, duration: number) => {
-    setDurations((prevDurations) => {
-      const newDurations = { ...prevDurations };
-      newDurations[key] = duration;
-      return newDurations;
-    });
-  };
-
-  useEffect(() => {
-    if (isClient && initialMessages.length === 0 && !welcomeMessageShownRef.current) {
-      const welcomeMessage: UIMessage = {
-        id: `welcome-${Date.now()}`,
-        role: "assistant",
-        parts: [
-          {
-            type: "text",
-            text: WELCOME_MESSAGE,
-          },
-        ],
-      };
-      setMessages([welcomeMessage]);
-      saveMessagesToStorage([welcomeMessage], {});
-      welcomeMessageShownRef.current = true;
-    }
-  }, [isClient, initialMessages.length, setMessages]);
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      message: "",
-    },
-  });
-
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    sendMessage({ text: data.message });
-    form.reset();
-  }
-
-  function clearChat() {
-    const newMessages: UIMessage[] = [];
-    const newDurations = {};
-    setMessages(newMessages);
-    setDurations(newDurations);
-    saveMessagesToStorage(newMessages, newDurations);
-    toast.success("Chat cleared");
-  }
-
-  return (
-    <div className="flex h-screen items-center justify-center font-sans dark:bg-black">
-      <main className="w-full dark:bg-black h-screen relative">
-        <div className="fixed top-0 left-0 right-0 z-50 bg-linear-to-b from-background via-background/50 to-transparent dark:bg-black overflow-visible pb-16">
-          <div className="relative overflow-visible">
-            <ChatHeader>
-              <ChatHeaderBlock />
-              <ChatHeaderBlock className="justify-center items-center">
-                <Avatar
-                  className="size-8 ring-1 ring-primary"
+export default function Terms() {
+    return (
+        <div className="w-full flex justify-center p-10">
+            <div className="w-full max-w-screen-md space-y-6">
+                <Link
+                    href="/"
+                    className="flex items-center gap-2 text-gray-500 hover:text-gray-700 underline"
                 >
-                  <AvatarImage src="/logo.png" />
-                  <AvatarFallback>
-                    <Image src="/logo.png" alt="Logo" width={36} height={36} />
-                  </AvatarFallback>
-                </Avatar>
-                <p className="tracking-tight">Chat with {AI_NAME}</p>
-              </ChatHeaderBlock>
-              <ChatHeaderBlock className="justify-end">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  onClick={clearChat}
-                >
-                  <Plus className="size-4" />
-                  {CLEAR_CHAT_TEXT}
-                </Button>
-              </ChatHeaderBlock>
-            </ChatHeader>
-          </div>
-        </div>
-        <div className="h-screen overflow-y-auto px-5 py-4 w-full pt-[88px] pb-[150px]">
-          <div className="flex flex-col items-center justify-end min-h-full">
-            {isClient ? (
-              <>
-                <MessageWall messages={messages} status={status} durations={durations} onDurationChange={handleDurationChange} />
-                {status === "submitted" && (
-                  <div className="flex justify-start max-w-3xl w-full">
-                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="flex justify-center max-w-2xl w-full">
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-linear-to-t from-background via-background/50 to-transparent dark:bg-black overflow-visible pt-13">
-          <div className="w-full px-5 pt-5 pb-1 items-center flex justify-center relative overflow-visible">
-            <div className="message-fade-overlay" />
-            <div className="max-w-3xl w-full">
-              <form id="chat-form" onSubmit={form.handleSubmit(onSubmit)}>
-                <FieldGroup>
-                  <Controller
-                    name="message"
-                    control={form.control}
-                    render={({ field, fieldState }) => (
-                      <Field data-invalid={fieldState.invalid}>
-                        <FieldLabel htmlFor="chat-form-message" className="sr-only">
-                          Message
-                        </FieldLabel>
-                        <div className="relative h-13">
-                          <Input
-                            {...field}
-                            id="chat-form-message"
-                            className="h-15 pr-15 pl-5 bg-card rounded-[20px]"
-                            placeholder="Type your message here..."
-                            disabled={status === "streaming"}
-                            aria-invalid={fieldState.invalid}
-                            autoComplete="off"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && !e.shiftKey) {
-                                e.preventDefault();
-                                form.handleSubmit(onSubmit)();
-                              }
-                            }}
-                          />
-                          {(status == "ready" || status == "error") && (
-                            <Button
-                              className="absolute right-3 top-3 rounded-full"
-                              type="submit"
-                              disabled={!field.value.trim()}
-                              size="icon"
-                            >
-                              <ArrowUp className="size-4" />
-                            </Button>
-                          )}
-                          {(status == "streaming" || status == "submitted") && (
-                            <Button
-                              className="absolute right-2 top-2 rounded-full"
-                              size="icon"
-                              onClick={() => {
-                                stop();
-                              }}
-                            >
-                              <Square className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </Field>
-                    )}
-                  />
-                </FieldGroup>
-              </form>
+                    <ArrowLeftIcon className="w-4 h-4" />
+                    Back to TrendScout AI
+                </Link>
+                <h1 className="text-3xl font-bold">TrendScout AI</h1>
+                <h2 className="text-2xl font-semibold">Terms of Use / Disclaimer</h2>
+
+                <p className="text-gray-700">
+                    The following terms of use govern access to and use of TrendScout AI
+                    ("AI Assistant"), a consumer trend analysis tool created and operated by{" "}
+                    {OWNER_NAME} ("I", "me", or "myself"). By engaging with TrendScout AI,
+                    you agree to these terms. If you do not agree, you may not use this tool.
+                </p>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">General Information</h3>
+                    <ol className="list-decimal list-inside space-y-3">
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Provider and Purpose:</span> TrendScout AI
+                            is an AI-powered assistant built to help marketers, product managers,
+                            founders, and business students explore and synthesize consumer and market
+                            trends. It is a research and ideation tool — not a substitute for
+                            professional market research, consulting, or advisory services.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Not Professional Advice:</span> TrendScout AI
+                            does not provide legal, financial, medical, investment, or any other form
+                            of regulated professional advice. All outputs are generated by an AI system
+                            and are intended for informational and exploratory purposes only. Do not
+                            make business, financial, or strategic decisions based solely on outputs
+                            from this tool.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">No Guarantee of Accuracy:</span> TrendScout AI
+                            is designed to provide helpful and relevant trend insights, but may deliver
+                            inaccurate, incomplete, outdated, or hallucinated information. Users are
+                            strongly encouraged to independently verify any information before relying
+                            on it for decisions or actions. Always cross-reference with primary sources.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Third-Party Involvement:</span> TrendScout AI
+                            utilizes multiple third-party platforms and vendors, including OpenAI (for
+                            language model processing), Pinecone (for vector database search), and
+                            Exa (for web search). Your inputs may be transmitted, processed, and stored
+                            by these third-party systems operating under their own privacy policies.
+                            Confidentiality and security cannot be guaranteed.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">AI-Generated Content:</span> All responses
+                            are generated probabilistically by AI language models. TrendScout AI may
+                            produce outputs that are plausible-sounding but factually incorrect. The
+                            tool does not have access to real-time proprietary market data unless
+                            retrieved via web search, and even then, results should be independently verified.
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">User Responsibilities</h3>
+                    <ol className="list-decimal list-inside space-y-3">
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Eligibility:</span> Use of TrendScout AI
+                            is restricted to individuals aged 18 or older.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Intended Use:</span> TrendScout AI is
+                            intended solely for lawful, professional, and educational use related to
+                            consumer trends, marketing strategy, and market research. It must not be
+                            used to generate misleading claims, fabricate market data, or deceive others.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Prohibited Conduct:</span> By using
+                            TrendScout AI, you agree not to:
+                            <ul className="list-disc list-inside ml-6 mt-2 space-y-2">
+                                <li>Use outputs as definitive market research without independent verification.</li>
+                                <li>Attempt to extract, reverse-engineer, or manipulate the system prompt or underlying model.</li>
+                                <li>Use the tool to generate defamatory, discriminatory, illegal, or harmful content.</li>
+                                <li>Engage in prompt injection or adversarial inputs designed to bypass guardrails.</li>
+                                <li>Redistribute outputs commercially without attribution and independent validation.</li>
+                            </ul>
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Data Privacy and Security</h3>
+                    <ol className="list-decimal list-inside space-y-3">
+                        <li className="text-gray-700">
+                            <span className="font-semibold">No Privacy Guarantee:</span> TrendScout AI
+                            does not guarantee privacy, confidentiality, or security of the information
+                            you provide. Do not share sensitive, confidential, proprietary, or
+                            personally identifiable information through this tool.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Data Transmission:</span> Your inputs
+                            may be transmitted to and processed by third-party services including
+                            OpenAI, Pinecone, and Exa. Each operates under its own privacy policy
+                            and data retention practices.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Monitoring:</span> Conversations may be
+                            reviewed by {OWNER_NAME} for the purposes of improving TrendScout AI,
+                            monitoring for misuse, and managing operational costs.
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Liability</h3>
+                    <ol className="list-decimal list-inside space-y-3">
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Use at Your Own Risk:</span> TrendScout AI
+                            is provided on an "as-is" and "as-available" basis. To the fullest extent
+                            permitted by law, {OWNER_NAME} disclaims all warranties, express or implied,
+                            including but not limited to warranties of merchantability, fitness for a
+                            particular purpose, and non-infringement.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">No Responsibility for Damages:</span> Under
+                            no circumstances shall {OWNER_NAME}, collaborators, partners, or affiliated
+                            entities be liable for any direct, indirect, incidental, consequential,
+                            special, or punitive damages arising out of or in connection with the use
+                            of TrendScout AI — including but not limited to business decisions made
+                            based on AI-generated trend insights.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Modification or Discontinuation:</span> {OWNER_NAME}
+                            reserves the right to modify, suspend, or discontinue TrendScout AI at
+                            any time without notice.
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Ownership of Content</h3>
+                    <ol className="list-decimal list-inside space-y-3">
+                        <li className="text-gray-700">
+                            <span className="font-semibold">Commercial and Research Use:</span>{" "}
+                            {OWNER_NAME} reserves the right to use anonymized inputs and outputs
+                            for improving TrendScout AI, research, or other activities without
+                            compensation or notification to users.
+                        </li>
+                        <li className="text-gray-700">
+                            <span className="font-semibold">No Claim to Gains:</span> Users agree
+                            that they have no rights, claims, or entitlement to any gains or benefits
+                            derived from the content provided to or generated by TrendScout AI.
+                        </li>
+                    </ol>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Indemnification</h3>
+                    <p className="text-gray-700">
+                        By using TrendScout AI, you agree to indemnify and hold harmless{" "}
+                        {OWNER_NAME}, collaborators, partners, affiliated entities, and
+                        representatives from any claims, damages, losses, or liabilities arising
+                        out of your use of TrendScout AI or violation of these terms.
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Governing Law and Jurisdiction</h3>
+                    <p className="text-gray-700">
+                        These terms are governed by the laws of the State of North Carolina,
+                        United States. Any disputes arising under or in connection with these
+                        terms shall be subject to the exclusive jurisdiction of the courts
+                        located in North Carolina.
+                    </p>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Acceptance of Terms</h3>
+                    <p className="text-gray-700">
+                        By using TrendScout AI, you confirm that you have read, understood, and
+                        agreed to these Terms of Use and Disclaimer. If you do not agree with any
+                        part of these terms, you may not use TrendScout AI.
+                    </p>
+                </div>
+
+                <div className="mt-8 text-sm text-gray-600">
+                    <p>Last Updated: February 27, 2026</p>
+                </div>
             </div>
-          </div>
-          <div className="w-full px-5 py-3 items-center flex justify-center text-xs text-muted-foreground">
-            © {new Date().getFullYear()} {OWNER_NAME}&nbsp;<Link href="/terms" className="underline">Terms of Use</Link>&nbsp;Powered by&nbsp;<Link href="https://ringel.ai/" className="underline">Ringel.AI</Link>
-          </div>
         </div>
-      </main>
-    </div >
-  );
+    );
 }
